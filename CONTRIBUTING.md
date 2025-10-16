@@ -1,4 +1,4 @@
-# Contributing to nestjs-auth-adapter
+# Contributing to deno-toolkit
 
 Thank you for your interest in contributing! 🎉
 
