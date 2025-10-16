@@ -391,4 +391,393 @@ describe('syncDenoNpmDependencies', () => {
     // JSR import should remain unchanged
     expect(updatedDeno.imports['@std/assert']).toBe('jsr:@std/assert@1.0.0');
   });
+
+  it('should preserve version precision in auto mode - major only', () => {
+    const packageJson = {
+      dependencies: {
+        lodash: '^4.17.21',
+        '@std/path': '^1.0.5',
+      },
+    };
+
+    const denoJson = {
+      imports: {
+        lodash: 'npm:lodash@4', // Only major version
+        '@std/path': 'jsr:@std/path@1', // Only major version
+      },
+    };
+
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
+
+    const result = syncDenoNpmDependencies({
+      denoJsonPath,
+      packageJsonPath,
+      silent: true,
+      versionPrecision: 'auto',
+    });
+
+    expect(result.hasUpdates).toBe(false); // Same major version, so no update
+    const updatedDeno = JSON.parse(fs.readFileSync(denoJsonPath, 'utf8'));
+    expect(updatedDeno.imports.lodash).toBe('npm:lodash@4'); // Preserved format
+    expect(updatedDeno.imports['@std/path']).toBe('jsr:@std/path@1'); // Preserved format
+  });
+
+  it('should preserve version precision in auto mode - major.minor', () => {
+    const packageJson = {
+      dependencies: {
+        lodash: '^4.17.21',
+        '@std/path': '^1.0.5',
+      },
+    };
+
+    const denoJson = {
+      imports: {
+        lodash: 'npm:lodash@4.17', // major.minor
+        '@std/path': 'jsr:@std/path@1.0', // major.minor
+      },
+    };
+
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
+
+    const result = syncDenoNpmDependencies({
+      denoJsonPath,
+      packageJsonPath,
+      silent: true,
+      versionPrecision: 'auto',
+    });
+
+    expect(result.hasUpdates).toBe(false); // Same major.minor, so no update
+    const updatedDeno = JSON.parse(fs.readFileSync(denoJsonPath, 'utf8'));
+    expect(updatedDeno.imports.lodash).toBe('npm:lodash@4.17'); // Preserved format
+    expect(updatedDeno.imports['@std/path']).toBe('jsr:@std/path@1.0'); // Preserved format
+  });
+
+  it('should update when major version changes in auto mode with major-only format', () => {
+    const packageJson = {
+      dependencies: {
+        typescript: '^5.0.0',
+        '@std/assert': '^1.0.0',
+      },
+    };
+
+    const denoJson = {
+      imports: {
+        ts: 'npm:typescript@4', // Major version changed: 4 -> 5
+        '@std/assert': 'jsr:@std/assert@0', // Major version changed: 0 -> 1
+      },
+    };
+
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
+
+    const result = syncDenoNpmDependencies({
+      denoJsonPath,
+      packageJsonPath,
+      silent: true,
+      versionPrecision: 'auto',
+    });
+
+    expect(result.hasUpdates).toBe(true);
+    expect(result.updates).toHaveLength(2);
+    expect(result.updates).toContainEqual({
+      name: 'typescript',
+      oldVersion: '4',
+      newVersion: '5',
+    });
+    expect(result.updates).toContainEqual({
+      name: '@std/assert',
+      oldVersion: '0',
+      newVersion: '1',
+    });
+
+    const updatedDeno = JSON.parse(fs.readFileSync(denoJsonPath, 'utf8'));
+    expect(updatedDeno.imports.ts).toBe('npm:typescript@5'); // Updated, preserved format
+    expect(updatedDeno.imports['@std/assert']).toBe('jsr:@std/assert@1'); // Updated, preserved format
+  });
+
+  it('should always use major version only in major mode', () => {
+    const packageJson = {
+      dependencies: {
+        lodash: '^4.17.21',
+        typescript: '^5.0.0',
+      },
+    };
+
+    const denoJson = {
+      imports: {
+        lodash: 'npm:lodash@4.17.0', // Should become 4
+        ts: 'npm:typescript@4.9.0', // Should become 5
+      },
+    };
+
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
+
+    const result = syncDenoNpmDependencies({
+      denoJsonPath,
+      packageJsonPath,
+      silent: true,
+      versionPrecision: 'major',
+    });
+
+    expect(result.hasUpdates).toBe(true);
+    expect(result.updates).toHaveLength(2);
+
+    const updatedDeno = JSON.parse(fs.readFileSync(denoJsonPath, 'utf8'));
+    expect(updatedDeno.imports.lodash).toBe('npm:lodash@4'); // major to major only
+    expect(updatedDeno.imports.ts).toBe('npm:typescript@5'); // major to major only
+  });
+
+  it('should not update in major mode when major version is same', () => {
+    const packageJson = {
+      dependencies: {
+        lodash: '^4.17.21',
+      },
+    };
+
+    const denoJson = {
+      imports: {
+        lodash: 'npm:lodash@4', // Same major version
+      },
+    };
+
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
+
+    const result = syncDenoNpmDependencies({
+      denoJsonPath,
+      packageJsonPath,
+      silent: true,
+      versionPrecision: 'major',
+    });
+
+    expect(result.hasUpdates).toBe(false);
+    const updatedDeno = JSON.parse(fs.readFileSync(denoJsonPath, 'utf8'));
+    expect(updatedDeno.imports.lodash).toBe('npm:lodash@4'); // No change
+  });
+
+  it('should update with full version in auto mode when format is x.x.x', () => {
+    const packageJson = {
+      dependencies: {
+        lodash: '^4.17.21',
+        typescript: '^5.0.0',
+      },
+    };
+
+    const denoJson = {
+      imports: {
+        lodash: 'npm:lodash@4.17.0', // Full version format
+        ts: 'npm:typescript@4.9.0', // Full version format
+      },
+    };
+
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
+
+    const result = syncDenoNpmDependencies({
+      denoJsonPath,
+      packageJsonPath,
+      silent: true,
+      versionPrecision: 'auto',
+    });
+
+    expect(result.hasUpdates).toBe(true);
+    expect(result.updates).toHaveLength(2);
+
+    const updatedDeno = JSON.parse(fs.readFileSync(denoJsonPath, 'utf8'));
+    expect(updatedDeno.imports.lodash).toBe('npm:lodash@4.17.21'); // Full version preserved
+    expect(updatedDeno.imports.ts).toBe('npm:typescript@5.0.0'); // Full version preserved
+  });
+
+  it('should always use major.minor version in minor mode', () => {
+    const packageJson = {
+      dependencies: {
+        lodash: '^4.17.21',
+        typescript: '^5.4.5',
+        '@std/path': '^1.2.3',
+      },
+    };
+
+    const denoJson = {
+      imports: {
+        lodash: 'npm:lodash@4', // Should become 4.17
+        ts: 'npm:typescript@5.0.0', // Should become 5.4
+        '@std/path': 'jsr:@std/path@1.0', // Should become 1.2
+      },
+    };
+
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
+
+    const result = syncDenoNpmDependencies({
+      denoJsonPath,
+      packageJsonPath,
+      silent: true,
+      versionPrecision: 'minor',
+    });
+
+    expect(result.hasUpdates).toBe(true);
+    expect(result.updates).toHaveLength(3);
+
+    const updatedDeno = JSON.parse(fs.readFileSync(denoJsonPath, 'utf8'));
+    expect(updatedDeno.imports.lodash).toBe('npm:lodash@4.17'); // Forced to major.minor
+    expect(updatedDeno.imports.ts).toBe('npm:typescript@5.4'); // Forced to major.minor
+    expect(updatedDeno.imports['@std/path']).toBe('jsr:@std/path@1.2'); // Forced to major.minor
+  });
+
+  it('should not update in minor mode when major.minor version is same', () => {
+    const packageJson = {
+      dependencies: {
+        lodash: '^4.17.21',
+        '@std/path': '^1.2.3',
+      },
+    };
+
+    const denoJson = {
+      imports: {
+        lodash: 'npm:lodash@4.17', // Same major.minor
+        '@std/path': 'jsr:@std/path@1.2', // Same major.minor
+      },
+    };
+
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
+
+    const result = syncDenoNpmDependencies({
+      denoJsonPath,
+      packageJsonPath,
+      silent: true,
+      versionPrecision: 'minor',
+    });
+
+    expect(result.hasUpdates).toBe(false);
+    const updatedDeno = JSON.parse(fs.readFileSync(denoJsonPath, 'utf8'));
+    expect(updatedDeno.imports.lodash).toBe('npm:lodash@4.17'); // No change
+    expect(updatedDeno.imports['@std/path']).toBe('jsr:@std/path@1.2'); // No change
+  });
+
+  it('should always use full version in full mode', () => {
+    const packageJson = {
+      dependencies: {
+        lodash: '^4.17.21',
+        typescript: '^5.4.5',
+        '@std/path': '^1.2.3',
+      },
+    };
+
+    const denoJson = {
+      imports: {
+        lodash: 'npm:lodash@4', // Should become 4.17.21
+        ts: 'npm:typescript@5.4', // Should become 5.4.5
+        '@std/path': 'jsr:@std/path@1.2.0', // Should become 1.2.3
+      },
+    };
+
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
+
+    const result = syncDenoNpmDependencies({
+      denoJsonPath,
+      packageJsonPath,
+      silent: true,
+      versionPrecision: 'full',
+    });
+
+    expect(result.hasUpdates).toBe(true);
+    expect(result.updates).toHaveLength(3);
+
+    const updatedDeno = JSON.parse(fs.readFileSync(denoJsonPath, 'utf8'));
+    expect(updatedDeno.imports.lodash).toBe('npm:lodash@4.17.21'); // Forced to full version
+    expect(updatedDeno.imports.ts).toBe('npm:typescript@5.4.5'); // Forced to full version
+    expect(updatedDeno.imports['@std/path']).toBe('jsr:@std/path@1.2.3'); // Forced to full version
+  });
+
+  it('should not update in full mode when full version is same', () => {
+    const packageJson = {
+      dependencies: {
+        lodash: '^4.17.21',
+        '@std/path': '^1.2.3',
+      },
+    };
+
+    const denoJson = {
+      imports: {
+        lodash: 'npm:lodash@4.17.21', // Same full version
+        '@std/path': 'jsr:@std/path@1.2.3', // Same full version
+      },
+    };
+
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
+
+    const result = syncDenoNpmDependencies({
+      denoJsonPath,
+      packageJsonPath,
+      silent: true,
+      versionPrecision: 'full',
+    });
+
+    expect(result.hasUpdates).toBe(false);
+    const updatedDeno = JSON.parse(fs.readFileSync(denoJsonPath, 'utf8'));
+    expect(updatedDeno.imports.lodash).toBe('npm:lodash@4.17.21'); // No change
+    expect(updatedDeno.imports['@std/path']).toBe('jsr:@std/path@1.2.3'); // No change
+  });
+
+  it('should handle subpaths correctly with minor mode', () => {
+    const packageJson = {
+      dependencies: {
+        lodash: '^4.17.21',
+      },
+    };
+
+    const denoJson = {
+      imports: {
+        'lodash/fp': 'npm:lodash@4/fp',
+      },
+    };
+
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
+
+    const result = syncDenoNpmDependencies({
+      denoJsonPath,
+      packageJsonPath,
+      silent: true,
+      versionPrecision: 'minor',
+    });
+
+    expect(result.hasUpdates).toBe(true);
+    const updatedDeno = JSON.parse(fs.readFileSync(denoJsonPath, 'utf8'));
+    expect(updatedDeno.imports['lodash/fp']).toBe('npm:lodash@4.17/fp'); // Subpath preserved
+  });
+
+  it('should handle subpaths correctly with full mode', () => {
+    const packageJson = {
+      dependencies: {
+        '@std/assert': '^1.0.5',
+      },
+    };
+
+    const denoJson = {
+      imports: {
+        'assert/equals': 'jsr:@std/assert@1/equals',
+      },
+    };
+
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
+
+    const result = syncDenoNpmDependencies({
+      denoJsonPath,
+      packageJsonPath,
+      silent: true,
+      versionPrecision: 'full',
+    });
+
+    expect(result.hasUpdates).toBe(true);
+    const updatedDeno = JSON.parse(fs.readFileSync(denoJsonPath, 'utf8'));
+    expect(updatedDeno.imports['assert/equals']).toBe('jsr:@std/assert@1.0.5/equals'); // Subpath preserved
+  });
 });

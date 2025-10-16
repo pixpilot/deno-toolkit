@@ -11,28 +11,59 @@ program
   .option('-d, --deno <path>', 'Path to deno.json file', './deno.json')
   .option('-p, --package <path>', 'Path to package.json file', './package.json')
   .option('-s, --silent', 'Suppress console output', false)
-  .action((options: { deno: string; package: string; silent: boolean }) => {
-    try {
-      // Resolve paths relative to current working directory
-      const denoJsonPath = path.resolve(process.cwd(), options.deno);
-      const packageJsonPath = path.resolve(process.cwd(), options.package);
+  .option(
+    '-v, --version-precision <mode>',
+    "Version precision mode: 'auto' (preserve format), 'major' (x), 'minor' (x.y), or 'full' (x.y.z)",
+    'auto',
+  )
+  .action(
+    (options: {
+      deno: string;
+      package: string;
+      silent: boolean;
+      versionPrecision: string;
+    }) => {
+      try {
+        // Validate versionPrecision
+        const validModes = ['auto', 'major', 'minor', 'full'] as const;
+        if (!validModes.includes(options.versionPrecision as never)) {
+          console.error(
+            "❌ Error: --version-precision must be one of: 'auto', 'major', 'minor', 'full'",
+          );
+          process.exit(1);
+        }
 
-      const result = syncDenoNpmDependencies({
-        denoJsonPath,
-        packageJsonPath,
-        silent: options.silent,
-      });
+        // Resolve paths relative to current working directory
+        const denoJsonPath = path.resolve(process.cwd(), options.deno);
+        const packageJsonPath = path.resolve(process.cwd(), options.package);
 
-      if (!options.silent && result.hasUpdates) {
-        console.log(`\n✨ Successfully synchronized ${result.updates.length} package(s)`);
+        const result = syncDenoNpmDependencies({
+          denoJsonPath,
+          packageJsonPath,
+          silent: options.silent,
+          versionPrecision: options.versionPrecision as
+            | 'auto'
+            | 'major'
+            | 'minor'
+            | 'full',
+        });
+
+        if (!options.silent && result.hasUpdates) {
+          console.log(
+            `\n✨ Successfully synchronized ${result.updates.length} package(s)`,
+          );
+        }
+
+        // Exit with success
+        process.exit(0);
+      } catch (error) {
+        console.error(
+          '❌ Error:',
+          error instanceof Error ? error.message : String(error),
+        );
+        process.exit(1);
       }
-
-      // Exit with success
-      process.exit(0);
-    } catch (error) {
-      console.error('❌ Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
-    }
-  });
+    },
+  );
 
 program.parse();
