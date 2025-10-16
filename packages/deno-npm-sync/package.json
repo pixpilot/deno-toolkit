@@ -1,5 +1,5 @@
 {
-  "name": "@pixpilot/deno-npm-sync",
+  "name": "deno-npm-sync",
   "type": "module",
   "version": "0.1.0",
   "packageManager": "pnpm@10.17.0",
