@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { syncDenoNpmDependencies } from '../src/main.js';
 
 describe('syncDenoNpmDependencies', () => {
-  const testDir = path.join(__dirname, 'fixtures');
+  const testDir = path.join(__dirname, 'temp-main-test');
   const packageJsonPath = path.join(testDir, 'package.json');
   const denoJsonPath = path.join(testDir, 'deno.json');
 
@@ -23,7 +23,7 @@ describe('syncDenoNpmDependencies', () => {
     vi.restoreAllMocks();
   });
 
-  it('should sync npm package versions from package.json to deno.json', () => {
+  it('should sync npm package versions from package.json to deno.json', async () => {
     const packageJson = {
       dependencies: {
         lodash: '^4.17.21',
@@ -43,7 +43,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    const result = syncDenoNpmDependencies({
+    const result = await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -67,7 +67,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(updatedDeno.imports.ts).toBe('npm:typescript@5.0.0');
   });
 
-  it('should handle npm imports with subpaths', () => {
+  it('should handle npm imports with subpaths', async () => {
     const packageJson = {
       dependencies: {
         lodash: '^4.17.21',
@@ -83,7 +83,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    const result = syncDenoNpmDependencies({
+    const result = await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -94,7 +94,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(updatedDeno.imports['lodash/fp']).toBe('npm:lodash@4.17.21/fp');
   });
 
-  it('should not update when versions are already in sync', () => {
+  it('should not update when versions are already in sync', async () => {
     const packageJson = {
       dependencies: {
         lodash: '^4.17.21',
@@ -110,7 +110,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    const result = syncDenoNpmDependencies({
+    const result = await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -120,7 +120,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(result.updates).toHaveLength(0);
   });
 
-  it('should skip non-npm imports', () => {
+  it('should skip non-npm imports', async () => {
     const packageJson = {
       dependencies: {
         lodash: '^4.17.21',
@@ -138,7 +138,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    const result = syncDenoNpmDependencies({
+    const result = await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -150,31 +150,31 @@ describe('syncDenoNpmDependencies', () => {
     expect(updatedDeno.imports['https://example']).toBe('https://example.com/module.ts');
   });
 
-  it('should throw error if package.json does not exist', () => {
+  it('should throw error if package.json does not exist', async () => {
     fs.writeFileSync(denoJsonPath, JSON.stringify({ imports: {} }, null, 2));
 
-    expect(() => {
+    await expect(
       syncDenoNpmDependencies({
         denoJsonPath,
         packageJsonPath,
         silent: true,
-      });
-    }).toThrow(/package\.json not found/u);
+      }),
+    ).rejects.toThrow(/package\.json not found/u);
   });
 
-  it('should throw error if deno.json does not exist', () => {
+  it('should throw error if deno.json does not exist', async () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify({}, null, 2));
 
-    expect(() => {
+    await expect(
       syncDenoNpmDependencies({
         denoJsonPath,
         packageJsonPath,
         silent: true,
-      });
-    }).toThrow(/deno\.json not found/u);
+      }),
+    ).rejects.toThrow(/deno\.json not found/u);
   });
 
-  it('should log output when not silent', () => {
+  it('should log output when not silent', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
     const packageJson = {
@@ -192,7 +192,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    syncDenoNpmDependencies({
+    await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: false,
@@ -202,7 +202,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(consoleSpy).toHaveBeenCalledWith('  - lodash: 4.17.0 → 4.17.21');
   });
 
-  it('should not log when silent is true', () => {
+  it('should not log when silent is true', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
     const packageJson = {
@@ -220,7 +220,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    syncDenoNpmDependencies({
+    await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -229,7 +229,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(consoleSpy).not.toHaveBeenCalled();
   });
 
-  it('should preserve JSON formatting in deno.json', () => {
+  it('should preserve JSON formatting in deno.json', async () => {
     const packageJson = {
       dependencies: {
         lodash: '^4.17.21',
@@ -245,7 +245,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    syncDenoNpmDependencies({
+    await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -257,7 +257,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(updatedContent).toContain('  "imports": {');
   });
 
-  it('should sync JSR package versions from package.json to deno.json', () => {
+  it('should sync JSR package versions from package.json to deno.json', async () => {
     const packageJson = {
       dependencies: {
         '@std/assert': '^1.0.0',
@@ -275,7 +275,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    const result = syncDenoNpmDependencies({
+    const result = await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -299,7 +299,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(updatedDeno.imports['@std/path']).toBe('jsr:@std/path@0.225.0');
   });
 
-  it('should handle JSR imports with subpaths', () => {
+  it('should handle JSR imports with subpaths', async () => {
     const packageJson = {
       dependencies: {
         '@std/assert': '^1.0.0',
@@ -315,7 +315,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    const result = syncDenoNpmDependencies({
+    const result = await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -326,7 +326,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(updatedDeno.imports['assert/equals']).toBe('jsr:@std/assert@1.0.0/equals');
   });
 
-  it('should sync both npm and JSR packages in the same deno.json', () => {
+  it('should sync both npm and JSR packages in the same deno.json', async () => {
     const packageJson = {
       dependencies: {
         lodash: '^4.17.21',
@@ -348,7 +348,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    const result = syncDenoNpmDependencies({
+    const result = await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -363,7 +363,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(updatedDeno.imports.ts).toBe('npm:typescript@5.0.0');
   });
 
-  it('should skip JSR imports when not in package.json', () => {
+  it('should skip JSR imports when not in package.json', async () => {
     const packageJson = {
       dependencies: {
         lodash: '^4.17.21',
@@ -380,7 +380,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    const result = syncDenoNpmDependencies({
+    const result = await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -392,7 +392,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(updatedDeno.imports['@std/assert']).toBe('jsr:@std/assert@1.0.0');
   });
 
-  it('should preserve version precision in auto mode - major only', () => {
+  it('should preserve version precision in auto mode - major only', async () => {
     const packageJson = {
       dependencies: {
         lodash: '^4.17.21',
@@ -410,7 +410,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    const result = syncDenoNpmDependencies({
+    const result = await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -423,7 +423,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(updatedDeno.imports['@std/path']).toBe('jsr:@std/path@1'); // Preserved format
   });
 
-  it('should preserve version precision in auto mode - major.minor', () => {
+  it('should preserve version precision in auto mode - major.minor', async () => {
     const packageJson = {
       dependencies: {
         lodash: '^4.17.21',
@@ -441,7 +441,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    const result = syncDenoNpmDependencies({
+    const result = await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -454,7 +454,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(updatedDeno.imports['@std/path']).toBe('jsr:@std/path@1.0'); // Preserved format
   });
 
-  it('should update when major version changes in auto mode with major-only format', () => {
+  it('should update when major version changes in auto mode with major-only format', async () => {
     const packageJson = {
       dependencies: {
         typescript: '^5.0.0',
@@ -472,7 +472,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    const result = syncDenoNpmDependencies({
+    const result = await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -497,7 +497,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(updatedDeno.imports['@std/assert']).toBe('jsr:@std/assert@1'); // Updated, preserved format
   });
 
-  it('should always use major version only in major mode', () => {
+  it('should always use major version only in major mode', async () => {
     const packageJson = {
       dependencies: {
         lodash: '^4.17.21',
@@ -515,7 +515,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    const result = syncDenoNpmDependencies({
+    const result = await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -530,7 +530,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(updatedDeno.imports.ts).toBe('npm:typescript@5'); // major to major only
   });
 
-  it('should not update in major mode when major version is same', () => {
+  it('should not update in major mode when major version is same', async () => {
     const packageJson = {
       dependencies: {
         lodash: '^4.17.21',
@@ -546,7 +546,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    const result = syncDenoNpmDependencies({
+    const result = await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -558,7 +558,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(updatedDeno.imports.lodash).toBe('npm:lodash@4'); // No change
   });
 
-  it('should update with full version in auto mode when format is x.x.x', () => {
+  it('should update with full version in auto mode when format is x.x.x', async () => {
     const packageJson = {
       dependencies: {
         lodash: '^4.17.21',
@@ -576,7 +576,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    const result = syncDenoNpmDependencies({
+    const result = await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -591,7 +591,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(updatedDeno.imports.ts).toBe('npm:typescript@5.0.0'); // Full version preserved
   });
 
-  it('should always use major.minor version in minor mode', () => {
+  it('should always use major.minor version in minor mode', async () => {
     const packageJson = {
       dependencies: {
         lodash: '^4.17.21',
@@ -611,7 +611,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    const result = syncDenoNpmDependencies({
+    const result = await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -627,7 +627,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(updatedDeno.imports['@std/path']).toBe('jsr:@std/path@1.2'); // Forced to major.minor
   });
 
-  it('should not update in minor mode when major.minor version is same', () => {
+  it('should not update in minor mode when major.minor version is same', async () => {
     const packageJson = {
       dependencies: {
         lodash: '^4.17.21',
@@ -645,7 +645,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    const result = syncDenoNpmDependencies({
+    const result = await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -658,7 +658,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(updatedDeno.imports['@std/path']).toBe('jsr:@std/path@1.2'); // No change
   });
 
-  it('should always use full version in full mode', () => {
+  it('should always use full version in full mode', async () => {
     const packageJson = {
       dependencies: {
         lodash: '^4.17.21',
@@ -678,7 +678,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    const result = syncDenoNpmDependencies({
+    const result = await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -694,7 +694,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(updatedDeno.imports['@std/path']).toBe('jsr:@std/path@1.2.3'); // Forced to full version
   });
 
-  it('should not update in full mode when full version is same', () => {
+  it('should not update in full mode when full version is same', async () => {
     const packageJson = {
       dependencies: {
         lodash: '^4.17.21',
@@ -712,7 +712,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    const result = syncDenoNpmDependencies({
+    const result = await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -725,7 +725,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(updatedDeno.imports['@std/path']).toBe('jsr:@std/path@1.2.3'); // No change
   });
 
-  it('should handle subpaths correctly with minor mode', () => {
+  it('should handle subpaths correctly with minor mode', async () => {
     const packageJson = {
       dependencies: {
         lodash: '^4.17.21',
@@ -741,7 +741,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    const result = syncDenoNpmDependencies({
+    const result = await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,
@@ -753,7 +753,7 @@ describe('syncDenoNpmDependencies', () => {
     expect(updatedDeno.imports['lodash/fp']).toBe('npm:lodash@4.17/fp'); // Subpath preserved
   });
 
-  it('should handle subpaths correctly with full mode', () => {
+  it('should handle subpaths correctly with full mode', async () => {
     const packageJson = {
       dependencies: {
         '@std/assert': '^1.0.5',
@@ -769,7 +769,7 @@ describe('syncDenoNpmDependencies', () => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     fs.writeFileSync(denoJsonPath, JSON.stringify(denoJson, null, 2));
 
-    const result = syncDenoNpmDependencies({
+    const result = await syncDenoNpmDependencies({
       denoJsonPath,
       packageJsonPath,
       silent: true,

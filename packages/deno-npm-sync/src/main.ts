@@ -1,7 +1,9 @@
+/* eslint-disable no-await-in-loop */
 /* eslint-disable no-continue */
 /* eslint-disable no-console */
 import fs from 'node:fs';
 import path from 'node:path';
+import { findWorkspaceRoot, resolveVersion } from './catalog-resolver.js';
 
 interface PackageJson {
   dependencies?: Record<string, string>;
@@ -54,14 +56,21 @@ function formatVersion(version: string, precision: number): string {
  * @param registry - Either 'npm' or 'jsr'
  * @param pkg - The package.json object
  * @param versionPrecision - Version precision mode
+ * @param workspaceRoot - Workspace root directory for catalog resolution
  * @returns Updated import string or null if no update needed
  */
-function processImport(
+async function processImport(
   denoImport: string,
   registry: 'npm' | 'jsr',
   pkg: PackageJson,
   versionPrecision: 'auto' | 'major' | 'minor' | 'full',
-): { newImport: string; name: string; oldVersion: string; newVersion: string } | null {
+  workspaceRoot: string,
+): Promise<{
+  newImport: string;
+  name: string;
+  oldVersion: string;
+  newVersion: string;
+} | null> {
   // Match registry imports with optional subpath (e.g., npm:pkg@1.0.0 or npm:pkg@1.0.0/subpath)
   const npmPattern = /^npm:(?<name>[^@]+)@(?<version>\d+(?:\.\d+)*)(?<subpath>\/.*)?$/u;
   const jsrPattern =
@@ -74,11 +83,20 @@ function processImport(
   const { name, version, subpath } = match.groups;
   if (name == null || version == null) return null;
 
-  const pkgVersion =
-    pkg.devDependencies?.[name]?.replace(/^\D*/u, '') ??
-    pkg.dependencies?.[name]?.replace(/^\D*/u, '');
+  // Get the version from package.json (may be a catalog reference)
+  const rawVersion = pkg.devDependencies?.[name] ?? pkg.dependencies?.[name];
 
-  if (pkgVersion == null || pkgVersion === version) return null;
+  if (rawVersion == null) return null;
+
+  // Resolve catalog references if present
+  const resolvedVersion = await resolveVersion(rawVersion, name, workspaceRoot);
+
+  if (resolvedVersion == null) return null;
+
+  // Remove any non-digit characters from the start (e.g., ^, ~, >=)
+  const pkgVersion = resolvedVersion.replace(/^\D*/u, '');
+
+  if (pkgVersion === version) return null;
 
   // Determine the precision to use for the new version
   let finalVersion: string;
@@ -118,7 +136,7 @@ function processImport(
  *   - 'full': Always uses full version (e.g., "1.0.0")
  * @returns Object containing sync results
  */
-export function syncDenoNpmDependencies(options: SyncOptions): SyncResult {
+export async function syncDenoNpmDependencies(options: SyncOptions): Promise<SyncResult> {
   const {
     denoJsonPath,
     packageJsonPath,
@@ -138,6 +156,9 @@ export function syncDenoNpmDependencies(options: SyncOptions): SyncResult {
     throw new Error(`deno.json not found at: ${denoPath}`);
   }
 
+  // Find workspace root for catalog resolution
+  const workspaceRoot = findWorkspaceRoot(path.dirname(pkgPath)) ?? path.dirname(pkgPath);
+
   // Read and parse files
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as PackageJson;
   const deno = JSON.parse(fs.readFileSync(denoPath, 'utf8')) as DenoJson;
@@ -149,7 +170,13 @@ export function syncDenoNpmDependencies(options: SyncOptions): SyncResult {
     if (typeof denoImport !== 'string') continue;
 
     // Try processing as npm import
-    const npmResult = processImport(denoImport, 'npm', pkg, versionPrecision);
+    const npmResult = await processImport(
+      denoImport,
+      'npm',
+      pkg,
+      versionPrecision,
+      workspaceRoot,
+    );
     if (npmResult) {
       deno.imports[importKey] = npmResult.newImport;
       updates.push({
@@ -162,7 +189,13 @@ export function syncDenoNpmDependencies(options: SyncOptions): SyncResult {
     }
 
     // Try processing as JSR import
-    const jsrResult = processImport(denoImport, 'jsr', pkg, versionPrecision);
+    const jsrResult = await processImport(
+      denoImport,
+      'jsr',
+      pkg,
+      versionPrecision,
+      workspaceRoot,
+    );
     if (jsrResult) {
       deno.imports[importKey] = jsrResult.newImport;
       updates.push({

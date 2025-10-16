@@ -55,7 +55,9 @@
     "format": "prettier --check . --ignore-path ../../.gitignore --ignore-path ../../.prettierignore"
   },
   "dependencies": {
-    "commander": "^13.0.0"
+    "commander": "^13.0.0",
+    "package-manager-detector": "^1.4.1",
+    "yaml": "^2.8.1"
   },
   "devDependencies": {
     "@internal/eslint-config": "workspace:*",

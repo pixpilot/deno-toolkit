@@ -17,7 +17,7 @@ program
     'auto',
   )
   .action(
-    (options: {
+    async (options: {
       deno: string;
       package: string;
       silent: boolean;
@@ -37,7 +37,7 @@ program
         const denoJsonPath = path.resolve(process.cwd(), options.deno);
         const packageJsonPath = path.resolve(process.cwd(), options.package);
 
-        const result = syncDenoNpmDependencies({
+        const result = await syncDenoNpmDependencies({
           denoJsonPath,
           packageJsonPath,
           silent: options.silent,

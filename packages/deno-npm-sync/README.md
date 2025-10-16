@@ -8,9 +8,10 @@ A CLI tool and library to automatically synchronize npm and JSR package versions
 - 📦 **Dual Registry Support**: Works with both npm (`npm:`) and JSR (`jsr:`) imports
 - 🎯 **Subpath Support**: Handles imports with subpaths (e.g., `npm:lodash@4.17.21/fp`, `jsr:@std/assert@1.0.0/equals`)
 - 🔍 **Smart Detection**: Only updates packages that have version mismatches
+- 📋 **PNPM Catalog Support**: Automatically resolves pnpm catalog references from `pnpm-workspace.yaml`
 - 🎨 **Flexible Version Precision**: Four modes - auto-detect, major-only, major.minor, or full version
 - 🛡️ **Type-Safe**: Written in TypeScript with full type definitions
-- 🧪 **Well-Tested**: Comprehensive test coverage with 25+ test cases
+- 🧪 **Well-Tested**: Comprehensive test coverage with 29+ test cases
 - 🚀 **CLI & Library**: Use as a command-line tool or programmatically in your code
 
 ## Installation
@@ -271,6 +272,98 @@ In `full` mode, the tool always uses the complete version (e.g., `4.17.21`):
 - **Major mode**: Ideal when you want to lock to major versions only for maximum compatibility
 - **Minor mode**: Good balance between stability and getting minor updates
 - **Full mode**: When you need exact version matching and full control
+
+## PNPM Catalog Support
+
+The tool automatically resolves pnpm catalog references from `pnpm-workspace.yaml`, making it easy to manage centralized dependencies in monorepos.
+
+### Default Catalog
+
+Use the default catalog with `catalog:` prefix:
+
+```yaml
+# pnpm-workspace.yaml
+catalog:
+  zod: ^3.22.0
+  react: ^18.2.0
+  lodash: ^4.17.21
+```
+
+```json
+// package.json
+{
+  "dependencies": {
+    "zod": "catalog:",
+    "react": "catalog:",
+    "lodash": "catalog:"
+  }
+}
+```
+
+The tool will automatically resolve these to `^3.22.0`, `^18.2.0`, and `^4.17.21` respectively.
+
+### Named Catalogs
+
+Use named catalogs for different dependency groups:
+
+```yaml
+# pnpm-workspace.yaml
+catalogs:
+  prod:
+    zod: ^3.22.0
+    lodash: ^4.17.21
+  dev:
+    typescript: ^5.0.0
+    vitest: ^1.0.0
+```
+
+```json
+// package.json
+{
+  "dependencies": {
+    "zod": "catalog:prod",
+    "lodash": "catalog:prod"
+  },
+  "devDependencies": {
+    "typescript": "catalog:dev",
+    "vitest": "catalog:dev"
+  }
+}
+```
+
+The tool will resolve these references to the actual versions from the specified catalog.
+
+### How It Works
+
+1. The tool detects you're using pnpm (via `package-manager-detector`)
+2. It looks for `pnpm-workspace.yaml` in your workspace root
+3. When it finds a `catalog:` or `catalog:name` reference in `package.json`, it resolves the actual version
+4. The resolved version is then used to sync with your `deno.json`
+
+**Example:**
+
+```
+// deno.json (before)
+{
+  "imports": {
+    "zod": "npm:zod@3.21.0"
+  }
+}
+
+// package.json
+{
+  "dependencies": {
+    "zod": "catalog:prod"  // Resolves to ^3.22.0
+  }
+}
+
+// deno.json (after sync)
+{
+  "imports": {
+    "zod": "npm:zod@3.22.0"
+  }
+}
+```
 
 ## Registry Support
 
