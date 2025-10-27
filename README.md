@@ -35,7 +35,10 @@ pnpm run turbo:gen:init
 
 ## 📦 Packages
 
-<!-- List your packages here -->
+### [deno-npm-sync](./packages/deno-npm-sync/README.md)
+
+A CLI tool to synchronize dependencies between Deno and NPM projects.
+
 
 ## 🚢 Releases
 
