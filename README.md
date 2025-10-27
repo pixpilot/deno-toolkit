@@ -1,3 +1,46 @@
 # deno-toolkit
 
-A collection of essential utilities and tools for Deno development, providing common functionality to streamline your Deno projects.
+> A modern TypeScript monorepo managed with pnpm and TurboRepo.
+
+## 🚀 Getting Started
+
+### Development
+
+Build all packages:
+
+```sh
+pnpm build
+```
+
+Run tests:
+
+```sh
+pnpm test
+```
+
+Lint and format:
+
+```sh
+pnpm lint
+pnpm format
+```
+
+### Create a New Package
+
+Generate a new package in the monorepo:
+
+```sh
+pnpm run turbo:gen:init
+```
+
+## 📦 Packages
+
+<!-- List your packages here -->
+
+## 🚢 Releases
+
+This project uses [Changesets](https://github.com/changesets/changesets) for version management and publishing.
+
+## 📄 License
+
+[MIT](LICENSE)
