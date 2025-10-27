@@ -1,5 +1,11 @@
 # @pixpilot/deno-npm-sync
 
+## 1.1.0
+
+### Minor Changes
+
+- add catalog resolver for pnpm workspace support
+
 ## 1.0.0
 
 ### Major Changes
