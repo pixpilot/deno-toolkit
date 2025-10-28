@@ -1,7 +1,7 @@
 {
   "name": "deno-npm-sync",
   "type": "module",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "packageManager": "pnpm@10.17.0",
   "description": "A CLI tool to synchronize dependencies between Deno and NPM projects.",
   "author": "PixPilot <m.doaie@hotmail.com>",

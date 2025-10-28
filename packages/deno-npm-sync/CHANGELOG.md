@@ -1,5 +1,12 @@
 # @pixpilot/deno-npm-sync
 
+## 1.3.0
+
+### Minor Changes
+
+- remove note about package relocation from README
+- update README to enhance package description and usage instructions
+
 ## 1.2.0
 
 ### Minor Changes
