@@ -2,10 +2,6 @@
 
 A CLI tool and library to automatically synchronize npm and JSR package versions from `package.json` to Deno's `deno.json` imports. This ensures your Deno projects always use the same package versions as defined in your package.json, eliminating version drift and manual updates.
 
-## Note
-
-This package has moved to [@pixpilot/deno-npm-sync](https://npmjs.com/package/@pixpilot/deno-npm-sync).
-
 ## Features
 
 - 🔄 **Automatic Synchronization**: Syncs npm and JSR package versions from `package.json` to `deno.json`
